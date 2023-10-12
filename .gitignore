@@ -1,0 +1,4 @@
+env/
+imdb*
+.env
+*.mp3
