@@ -1,0 +1,156 @@
+"""
+en esta modificación 
+la sugerencia, es Unificar "def" para mayor 
+eficiencia.
+
+"""
+
+
+import threading
+from PIL import Image, ImageTk
+from tkinter import Tk,Button, PhotoImage, Label
+from elevenlabs import set_api_key
+from elevenlabs import clone, generate, voices, play
+from dotenv import load_dotenv
+
+load_dotenv()
+set_api_key(os.environ["ELEVEN_LABS_KEY"])
+openai.api_key = os.environ["OPENAI_KEY"]
+
+
+FORMAT = pyaudio.paInt16
+CHANNELS = 1
+RATE = 44100
+CHUNK = 1024
+RECORD_SECONDS = 7
+WAVE_OUTPUT_FILENAME = "grabacion_temporal.wav"
+MP3_OUTPUT_FILENAME = "grabacion_temporal.mp3"
+
+voices = voices()
+WAIFU_VOICE = voices[-1]
+
+model = whisper.load_model("small")
+
+def voice_assistant():
+    """
+    Función unificada que graba audio, lo convierte a texto, 
+    procesa el comando con ChatGPT y reproduce la respuesta en audio.
+    """
+    import pyaudio
+    import wave
+    import whisper
+    import ffmpeg
+    import os
+    import openai
+    from elevenlabs import generate, play
+    
+    # Inicializar PyAudio
+    audio = pyaudio.PyAudio()
+    
+    # Configurar y grabar audio
+    stream = audio.open(format=FORMAT, channels=CHANNELS,
+                        rate=RATE, input=True,
+                        frames_per_buffer=CHUNK)
+    
+    print("Grabando audio...")
+    frames = []
+    for i in range(0, int(RATE / CHUNK * RECORD_SECONDS)):
+        data = stream.read(CHUNK)
+        frames.append(data)
+    
+    stream.stop_stream()
+    stream.close()
+    audio.terminate()
+    print("Grabación finalizada.")
+    
+    # Guardar archivo WAV temporal
+    waveFile = wave.open(WAVE_OUTPUT_FILENAME, 'wb')
+    waveFile.setnchannels(CHANNELS)
+    waveFile.setsampwidth(audio.get_sample_size(FORMAT))
+    waveFile.setframerate(RATE)
+    waveFile.writeframes(b''.join(frames))
+    waveFile.close()
+    print("Archivo de audio temporal guardado como " + WAVE_OUTPUT_FILENAME)
+    
+    # Convertir a MP3
+    ffmpeg.input(WAVE_OUTPUT_FILENAME).output(MP3_OUTPUT_FILENAME, format='mp3').run()
+    print("Archivo de audio temporal convertido a " + MP3_OUTPUT_FILENAME)
+    os.remove(WAVE_OUTPUT_FILENAME)
+    print("Archivo de audio temporal eliminado")
+    
+    # Cargar y procesar audio con Whisper
+    audio_data = whisper.load_audio(MP3_OUTPUT_FILENAME)
+    audio_data = whisper.pad_or_trim(audio_data)
+    mel = whisper.log_mel_spectrogram(audio_data).to(model.device)
+    
+    # Detectar idioma
+    _, probs = model.detect_language(mel)
+    print(f"Detected language: {max(probs, key=probs.get)}")
+    
+    # Transcribir audio
+    options = whisper.DecodingOptions(fp16=False)
+    result = whisper.decode(model, mel, options)
+    command = result.text.lower()
+    print(f"Comando reconocido: {command}")
+    
+    # Eliminar archivo MP3
+    os.remove(MP3_OUTPUT_FILENAME)
+    
+    # Determinar prompt según el comando
+    if 'hola' in command and 'bianca' in command:
+        prompt = 'Saluda de manera formal, presentandote como BIANCA, un asistente virtual potenciado por inteligencia artificial.'
+    else:
+        prompt = command
+    
+    # Generar respuesta con ChatGPT
+    completion = openai.Completion.create(
+        engine="text-davinci-003",
+        prompt=prompt,
+        max_tokens=2048
+    )
+    result_text = completion.choices[0].text
+    
+    # Generar y reproducir audio de respuesta
+    audio_response = generate(text=result_text, voice=WAIFU_VOICE, model='eleven_multilingual_v1')
+    play(audio_response)
+
+class App(threading.Thread):
+
+    def __init__(self):
+        threading.Thread.__init__(self)
+        self.start()
+        
+        # Crear interfaz
+        self.root = Tk()
+        self.root.geometry('500x600')
+        self.root.title('lucIA')
+        
+        # Imagen waifu
+
+        waifu_img = Image.open("imgs/ 
+        waifu.png")
+
+        test = ImageTk.PhotoImage(waifu_img)
+        label1 = Label(self.root, image=test)
+        label1.image = test
+        label1.place(x=60, y=0)
+        
+        # Botón micrófono
+        microphone_img = 
+        PhotoImage(file=r'imgs/   
+        microphone.png')
+        microphone_img = 
+        microphone_img.subsample(4, 4)
+        btn_micro = Button(self.root,
+        text='Click me',
+        image=microphone_img, 
+                          command=lambda:
+        (send_commands(), self.root.quit()))
+        btn_micro.place(x=150, y=425)
+        
+        # Iniciar loop
+
+        self.root.mainloop()
+
+if __name__ == '__main__':
+    app = App()
